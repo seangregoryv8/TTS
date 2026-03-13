@@ -11,7 +11,6 @@ import torch
 import torch.distributed as dist
 from torch import nn
 from transformers import (
-    BeamSearchScorer,
     ConstrainedBeamSearchScorer,
     DisjunctiveConstraint,
     GenerationConfig,
@@ -22,6 +21,11 @@ from transformers import (
     StoppingCriteriaList,
 )
 from transformers.generation.utils import GenerateOutput, SampleOutput, logger
+
+try:
+    from transformers import BeamSearchScorer
+except ImportError:  # transformers>=4.56 no longer re-exports this at top-level
+    from transformers.generation.beam_search import BeamSearchScorer
 
 
 def setup_seed(seed):

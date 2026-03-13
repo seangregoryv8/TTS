@@ -1,5 +1,6 @@
 import os
 import pickle as pickle_tts
+import warnings
 from typing import Any, Callable, Dict, Union
 
 import fsspec
@@ -41,6 +42,31 @@ def load_fsspec(
     Returns:
         Object stored in path.
     """
+
+    def _torch_load_with_compat(f):
+        try:
+            return torch.load(f, map_location=map_location, **kwargs)
+        except pickle_tts.UnpicklingError as exc:
+            # PyTorch 2.6+ defaults `weights_only=True`, which can break loading older checkpoints
+            # that include pickled objects (e.g., configs) from trusted sources.
+            if "Weights only load failed" not in str(exc) or "weights_only" in kwargs:
+                raise
+            if hasattr(f, "seek"):
+                try:
+                    f.seek(0)
+                except Exception:
+                    pass
+            warnings.warn(
+                "PyTorch weights-only load failed; retrying checkpoint load with weights_only=False. "
+                "Do this only if you trust the source of the checkpoint.",
+                UserWarning,
+            )
+            try:
+                return torch.load(f, map_location=map_location, weights_only=False, **kwargs)
+            except TypeError:
+                # Older torch versions may not support the weights_only kwarg.
+                raise exc
+
     is_local = os.path.isdir(path) or os.path.isfile(path)
     if cache and not is_local:
         with fsspec.open(
@@ -48,10 +74,10 @@ def load_fsspec(
             filecache={"cache_storage": str(get_user_data_dir("tts_cache"))},
             mode="rb",
         ) as f:
-            return torch.load(f, map_location=map_location, **kwargs)
+            return _torch_load_with_compat(f)
     else:
         with fsspec.open(path, "rb") as f:
-            return torch.load(f, map_location=map_location, **kwargs)
+            return _torch_load_with_compat(f)
 
 
 def load_checkpoint(

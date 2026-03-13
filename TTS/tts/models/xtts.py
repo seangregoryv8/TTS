@@ -2,6 +2,7 @@ import os
 from dataclasses import dataclass
 
 import librosa
+import soundfile as sf
 import torch
 import torch.nn.functional as F
 import torchaudio
@@ -69,8 +70,10 @@ def wav_to_mel_cloning(
 def load_audio(audiopath, sampling_rate):
     # better load setting following: https://github.com/faroit/python_audio_loading_benchmark
 
-    # torchaudio should chose proper backend to load audio depending on platform
-    audio, lsr = torchaudio.load(audiopath)
+    # Avoid torchaudio.load() on Windows where the default backend may require TorchCodec+FFmpeg.
+    # XTTS typically conditions on wav files, which SoundFile can load without extra system deps.
+    wav, lsr = sf.read(audiopath, dtype="float32", always_2d=True)
+    audio = torch.from_numpy(wav.T)
 
     # stereo to mono if needed
     if audio.size(0) != 1:
