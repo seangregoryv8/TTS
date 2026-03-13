@@ -587,14 +587,12 @@ class GPT(nn.Module):
         **hf_generate_kwargs,
     ):
         gpt_inputs = self.compute_embeddings(cond_latents, text_inputs)
-        # Transformers warns when pad_token_id == eos_token_id because it can't infer attention_mask reliably.
-        # XTTS does not pad these inputs, so an all-ones mask is correct and silences the warning.
-        attention_mask = torch.ones_like(gpt_inputs, dtype=torch.long, device=gpt_inputs.device)
         gen = self.gpt_inference.generate(
             gpt_inputs,
-            attention_mask=attention_mask,
             bos_token_id=self.start_audio_token,
-            pad_token_id=self.stop_audio_token,
+            # We don't pad these inputs. Keep pad_token_id distinct from eos_token_id so Transformers can
+            # infer/extend attention_mask without warning.
+            pad_token_id=0,
             eos_token_id=self.stop_audio_token,
             max_length=self.max_gen_mel_tokens + gpt_inputs.shape[-1],
             **hf_generate_kwargs,
@@ -604,12 +602,10 @@ class GPT(nn.Module):
         return gen[:, gpt_inputs.shape[1] :]
 
     def get_generator(self, fake_inputs, **hf_generate_kwargs):
-        attention_mask = torch.ones_like(fake_inputs, dtype=torch.long, device=fake_inputs.device)
         return self.gpt_inference.generate_stream(
             fake_inputs,
-            attention_mask=attention_mask,
             bos_token_id=self.start_audio_token,
-            pad_token_id=self.stop_audio_token,
+            pad_token_id=0,
             eos_token_id=self.stop_audio_token,
             max_length=self.max_gen_mel_tokens + fake_inputs.shape[-1],
             do_stream=True,

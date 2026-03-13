@@ -6,6 +6,7 @@
 # python tts_cli_player_basic.py
 
 from pathlib import Path
+import time
 
 import numpy as np
 import sounddevice as sd
@@ -35,6 +36,8 @@ def main():
     print(f"Device: {device}")
 
     tts = TTS(MODEL_NAME, progress_bar=False).to(device)
+    sample_rate = getattr(getattr(tts, "synthesizer", None), "output_sample_rate", 24000)
+    print(f"Output sample rate: {sample_rate}")
     speaker_wavs = resolve_files(NARRATOR_FILES)
 
     print("Type text and press Enter. Type 'quit' to exit.")
@@ -52,7 +55,14 @@ def main():
 
         print("Generating...")
         wav = tts.tts(text=text, speaker_wav=speaker_wavs, language=LANGUAGE)
-        sd.play(np.asarray(wav, dtype=np.float32), samplerate=24000)
+        wav_np = np.asarray(wav, dtype=np.float32)
+        out_dir = Path("outputs")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"basicv2_{time.strftime('%Y%m%d_%H%M%S')}.wav"
+        if getattr(tts, "synthesizer", None) is not None:
+            tts.synthesizer.save_wav(wav=wav_np, path=str(out_path))
+        print(f"Saved: {out_path}")
+        sd.play(wav_np, samplerate=sample_rate)
         sd.wait()
         print("Done.")
 

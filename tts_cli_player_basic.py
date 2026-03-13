@@ -30,8 +30,7 @@ INFERENCE_KWARGS = {
     "top_k": 50,
     "do_sample": False,
     "repetition_penalty": 10.0,
-    "length_penalty": 1.0,
-    "max_new_tokens": 40,
+    "length_penalty": 1.0
 }
 
 
