@@ -6,6 +6,7 @@
 # python tts_cli_player_basic.py
 
 import time
+import argparse
 
 import numpy as np
 import sounddevice as sd
@@ -45,6 +46,15 @@ def try_get_model_device(tts: TTS) -> str:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="XTTS CLI player (interactive or one-shot).")
+    parser.add_argument(
+        "text",
+        nargs="*",
+        help="If provided, speaks this text once and exits. If omitted, runs interactive mode.",
+    )
+    args = parser.parse_args()
+    one_shot_text = " ".join(args.text).strip() if args.text else None
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     log(f"Python Torch: {torch.__version__}")
     log(f"CUDA available: {torch.cuda.is_available()}")
@@ -65,6 +75,18 @@ def main():
     log(f"Output sample rate: {sample_rate}")
     speaker_wavs = resolve_files(NARRATOR_FILES)
     log(f"Inference settings: {INFERENCE_KWARGS}")
+
+    if one_shot_text:
+        log(f"Speaking once: {one_shot_text}")
+        gen_start = time.perf_counter()
+        wav = tts.tts(text=one_shot_text, speaker_wav=speaker_wavs, language=LANGUAGE, **INFERENCE_KWARGS)
+        gen_s = time.perf_counter() - gen_start
+        wav_np = np.asarray(wav, dtype=np.float32)
+        log(f"Generated in {gen_s:.1f}s; audio {wav_np.size/sample_rate:.2f}s; playing...")
+        sd.play(wav_np, samplerate=sample_rate)
+        sd.wait()
+        log("Done.")
+        return
 
     log("Type text and press Enter. Type 'quit' to exit.")
     while True:
