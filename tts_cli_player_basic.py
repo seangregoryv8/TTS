@@ -5,7 +5,6 @@
 # pip install TTS sounddevice
 # python tts_cli_player_basic.py
 
-from pathlib import Path
 import time
 
 import numpy as np
@@ -13,25 +12,14 @@ import sounddevice as sd
 import torch
 from TTS.api import TTS
 
-MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
-LANGUAGE = "en"
-
-VOICE_DIR = Path(r"C:\Users\chief\OneDrive\Documents\GitHub\tortoise-tts\tortoise\voices")
-NARRATOR_FILES = [
-    VOICE_DIR / "train_dotrice" / "1.wav",
-    VOICE_DIR / "train_dotrice" / "2.wav",
-]
-
-# XTTS defaults in this repo are quite "creative" (high temperature, low repetition_penalty).
-# These settings tend to be more stable and keep short prompts (like "Hello") short and coherent.
-INFERENCE_KWARGS = {
-    "temperature": 0.25,
-    "top_p": 0.85,
-    "top_k": 50,
-    "do_sample": False,
-    "repetition_penalty": 10.0,
-    "length_penalty": 1.0
-}
+from tts_cli_config import (
+    INFERENCE_KWARGS,
+    LANGUAGE,
+    MODEL_NAME,
+    NARRATOR_FILES,
+    get_output_sample_rate,
+    resolve_existing_files,
+)
 
 
 def log(message: str) -> None:
@@ -40,10 +28,7 @@ def log(message: str) -> None:
 
 
 def resolve_files(paths):
-    existing = [str(p) for p in paths if p.exists()]
-    if not existing:
-        raise FileNotFoundError("No narrator speaker wav files found. Update NARRATOR_FILES.")
-    return existing
+    return resolve_existing_files(paths)
 
 
 def try_get_model_device(tts: TTS) -> str:
@@ -76,7 +61,7 @@ def main():
     tts = TTS(MODEL_NAME, progress_bar=True).to(device)
     load_s = time.perf_counter() - load_start
     log(f"Model loaded in {load_s:.1f}s (model device: {try_get_model_device(tts)})")
-    sample_rate = getattr(getattr(tts, "synthesizer", None), "output_sample_rate", 24000)
+    sample_rate = get_output_sample_rate(tts, default=24000)
     log(f"Output sample rate: {sample_rate}")
     speaker_wavs = resolve_files(NARRATOR_FILES)
     log(f"Inference settings: {INFERENCE_KWARGS}")

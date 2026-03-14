@@ -6,25 +6,22 @@
 # python tts_cli_player_llm_roles.py
 
 import subprocess
-from pathlib import Path
 
 import numpy as np
 import sounddevice as sd
 import torch
 from TTS.api import TTS
 
-MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
-LANGUAGE = "en"
-LLM_MODEL = "llama3.2:1b"
-OLLAMA_EXE = r"C:\Users\chief\AppData\Local\Programs\Ollama\ollama.exe"
-
-VOICE_DIR = Path(r"C:\Users\chief\OneDrive\Documents\GitHub\tortoise-tts\tortoise\voices")
-VOICE_MAP = {
-    "narrator": [VOICE_DIR / "train_dotrice" / "1.wav", VOICE_DIR / "train_dotrice" / "2.wav"],
-    "merchant": [VOICE_DIR / "train_lescault" / "lescault_new1.wav", VOICE_DIR / "train_lescault" / "lescault_new2.wav"],
-    "guard": [VOICE_DIR / "train_kennard" / "1.wav", VOICE_DIR / "train_kennard" / "2.wav"],
-    "healer": [VOICE_DIR / "train_grace" / "1.wav", VOICE_DIR / "train_grace" / "2.wav"],
-}
+from tts_cli_config import (
+    LANGUAGE,
+    LLM_MODEL,
+    MODEL_NAME,
+    NARRATOR_FILES,
+    OLLAMA_EXE,
+    VOICE_MAP,
+    get_output_sample_rate,
+    resolve_existing_files,
+)
 
 SYSTEM_PROMPT = (
     "You are an NPC in a fantasy RPG. Reply with one short sentence under 10 words."
@@ -32,10 +29,7 @@ SYSTEM_PROMPT = (
 
 
 def resolve_files(paths):
-    existing = [str(p) for p in paths if p.exists()]
-    if not existing:
-        return [str(VOICE_MAP["narrator"][0])]
-    return existing
+    return resolve_existing_files(paths, fallback=NARRATOR_FILES[:1])
 
 
 def parse_role_and_text(raw):
@@ -71,6 +65,7 @@ def main():
     print(f"Device: {device}")
 
     tts = TTS(MODEL_NAME, progress_bar=False).to(device)
+    sample_rate = get_output_sample_rate(tts, default=24000)
 
     print("Type 'role: message' (e.g., 'merchant: hello'). Type 'quit' to exit.")
     print(f"Roles: {', '.join(VOICE_MAP.keys())}")
@@ -99,7 +94,7 @@ def main():
 
         print("Speaking...")
         wav = tts.tts(text=reply, speaker_wav=speaker_wavs, language=LANGUAGE)
-        sd.play(np.asarray(wav, dtype=np.float32), samplerate=24000)
+        sd.play(np.asarray(wav, dtype=np.float32), samplerate=sample_rate)
         sd.wait()
         print("Done.")
 

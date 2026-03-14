@@ -5,29 +5,25 @@
 # pip install TTS sounddevice
 # python tts_cli_player_basic.py
 
-from pathlib import Path
 import time
+from pathlib import Path
 
 import numpy as np
 import sounddevice as sd
 import torch
 from TTS.api import TTS
 
-MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
-LANGUAGE = "en"
-
-VOICE_DIR = Path(r"C:\Users\chief\OneDrive\Documents\GitHub\tortoise-tts\tortoise\voices")
-NARRATOR_FILES = [
-    VOICE_DIR / "train_dotrice" / "1.wav",
-    VOICE_DIR / "train_dotrice" / "2.wav",
-]
+from tts_cli_config import (
+    LANGUAGE,
+    MODEL_NAME,
+    NARRATOR_FILES,
+    get_output_sample_rate,
+    resolve_existing_files,
+)
 
 
 def resolve_files(paths):
-    existing = [str(p) for p in paths if p.exists()]
-    if not existing:
-        raise FileNotFoundError("No narrator speaker wav files found. Update NARRATOR_FILES.")
-    return existing
+    return resolve_existing_files(paths)
 
 
 def main():
@@ -36,7 +32,7 @@ def main():
     print(f"Device: {device}")
 
     tts = TTS(MODEL_NAME, progress_bar=False).to(device)
-    sample_rate = getattr(getattr(tts, "synthesizer", None), "output_sample_rate", 24000)
+    sample_rate = get_output_sample_rate(tts, default=24000)
     print(f"Output sample rate: {sample_rate}")
     speaker_wavs = resolve_files(NARRATOR_FILES)
 

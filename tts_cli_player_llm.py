@@ -13,16 +13,15 @@ import sounddevice as sd
 import torch
 from TTS.api import TTS
 
-MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
-LANGUAGE = "en"
-LLM_MODEL = "llama3.2:1b"
-OLLAMA_EXE = r"C:\Users\chief\AppData\Local\Programs\Ollama\ollama.exe"
-
-VOICE_DIR = Path(r"C:\Users\chief\OneDrive\Documents\GitHub\tortoise-tts\tortoise\voices")
-NARRATOR_FILES = [
-    VOICE_DIR / "train_dotrice" / "1.wav",
-    VOICE_DIR / "train_dotrice" / "2.wav",
-]
+from tts_cli_config import (
+    LANGUAGE,
+    LLM_MODEL,
+    MODEL_NAME,
+    NARRATOR_FILES,
+    OLLAMA_EXE,
+    get_output_sample_rate,
+    resolve_existing_files,
+)
 
 SYSTEM_PROMPT = (
     "You are an NPC in a fantasy RPG. Reply with one short sentence under 10 words."
@@ -30,10 +29,7 @@ SYSTEM_PROMPT = (
 
 
 def resolve_files(paths):
-    existing = [str(p) for p in paths if p.exists()]
-    if not existing:
-        raise FileNotFoundError("No narrator speaker wav files found. Update NARRATOR_FILES.")
-    return existing
+    return resolve_existing_files(paths)
 
 
 def run_ollama(prompt):
@@ -62,6 +58,7 @@ def main():
     print(f"Device: {device}")
 
     tts = TTS(MODEL_NAME, progress_bar=False).to(device)
+    sample_rate = get_output_sample_rate(tts, default=24000)
     speaker_wavs = resolve_files(NARRATOR_FILES)
 
     print("Type text and press Enter. Type 'quit' to exit.")
@@ -83,7 +80,7 @@ def main():
 
         print("Speaking...")
         wav = tts.tts(text=reply, speaker_wav=speaker_wavs, language=LANGUAGE)
-        sd.play(np.asarray(wav, dtype=np.float32), samplerate=24000)
+        sd.play(np.asarray(wav, dtype=np.float32), samplerate=sample_rate)
         sd.wait()
         print("Done.")
 
